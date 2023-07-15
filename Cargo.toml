@@ -1,0 +1,13 @@
+[package]
+name = "snipe"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4.3.1", features = ["derive", "cargo"] }
+reqwest = "0.11.18"
+tokio = {version = "1.28.2", features = ["macros", "rt-multi-thread"]}
+figment = { version = "0.10", features = ["toml", "env"] }
+serde = { version = "1.0", features = ["derive"] }
