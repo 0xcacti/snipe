@@ -9,7 +9,7 @@ use snipe::Config;
 #[derive(Debug, Parser)]
 #[command(name="snipe", version=crate_version!(), about="blocktime estimator for ethereum mainnet", long_about = "Convert blocknumber to approximate time, and time to approximate blocknumber", arg_required_else_help(true))]
 struct CLIParser {
-    /// The subcommand to run
+    // The subcommand to run
     #[command(subcommand)]
     command: Option<Commands>,
     /// The rpc url to use
@@ -24,10 +24,27 @@ struct CLIParser {
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// time to blocknumber
-    #[command(name = "time", alias = "t", about = "time to blocknumber [aliases: t]")]
-    GetBlockNumber,
+    #[command(
+        name = "block-to-time",
+        about = "time to blocknumber",
+        visible_alias = "btt"
+    )]
+    BlockToTime {
+        /// The blocknumber to convert
+        #[arg(required = true)]
+        block_num: u64,
+    },
     /// blocknumber to time
-    GetTime,
+    #[command(
+        name = "time-to-block",
+        about = "time to blocknumber",
+        visible_alias = "ttb"
+    )]
+    TimeToBlock {
+        /// The time to Convert
+        #[arg(required = true)]
+        time: String,
+    },
 }
 
 #[tokio::main]
@@ -43,11 +60,13 @@ async fn main() {
 
     // handle commands
     match &args.command {
-        Some(GetBlockNumber) => {
-            println!("No command specified");
+        Some(Commands::BlockToTime { block_num }) => {
+            let time = snipe::block_to_time(config, *block_num);
         }
-        None => {
-            println!("No command specified");
+        Some(Commands::TimeToBlock { time }) => {
+            let block = snipe::time_to_block(config, time);
+            println!("{}", block);
         }
+        None => {}
     }
 }
