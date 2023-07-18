@@ -29,12 +29,13 @@ pub async fn block_to_time(config: Config, block_num: u64) -> Result<u64> {
     // get current block
     let provider = Provider::<Http>::try_from(config.rpc_url())?;
     let current_block = get_current_block_number(&provider).await?;
-    if current_block < block_num {
-        return Err(anyhow::anyhow!("block number is in the future"));
-    }
-
     let timestamp = get_block_timestamp(provider, block_num).await?;
-    Ok(timestamp)
+
+    if current_block >= block_num {
+        return Ok(timestamp);
+    }
+    let time_difference = 12 * (block_num - current_block);
+    return Ok(timestamp + time_difference);
 }
 
 pub fn time_to_block(config: Config, time: &str) -> u64 {
