@@ -25,22 +25,31 @@ impl Config {
         self.time_zone.as_ref().expect("bible_version not set")
     }
 }
-pub async fn block_to_time(config: Config, block_num: u64) -> Result<String> {
-    println!("block_to_time");
-    println!("{}", block_num);
+pub async fn block_to_time(config: Config, block_num: u64) -> Result<u64> {
     let provider = Provider::<Http>::try_from(config.rpc_url())?;
+    let timestamp = get_block_timestamp(provider, block_num).await?;
+    Ok(timestamp)
+}
+
+pub fn time_to_block(config: Config, time: &str) -> u64 {
+    println!("block_to_time");
+    1
+}
+
+async fn get_current_block_number(provider: Provider<Http>) -> Result<u64> {
+    let block_number = provider.get_block_number().await?;
+    Ok(block_number.as_u64())
+}
+
+async fn get_block_timestamp(provider: Provider<Http>, block_num: u64) -> Result<u64> {
     let response = provider.get_block(block_num).await?;
     let block_json = serde_json::to_string(&response)?;
     let block: serde_json::Value = serde_json::from_str(&block_json)?;
     let timestamp = block["timestamp"].as_str().unwrap();
     let timestamp_hex = &timestamp[2..];
     let timestamp = u64::from_str_radix(timestamp_hex, 16)?;
-    Ok(timestamp.to_string())
-}
 
-pub fn time_to_block(config: Config, time: &str) -> u64 {
-    println!("block_to_time");
-    1
+    Ok(timestamp)
 }
 
 #[cfg(test)]
@@ -56,7 +65,7 @@ mod tests {
         let rpc_url = dotenv!("RPC_URL");
         let config = Config::new(Some(rpc_url.to_string()), Some("UTC".to_string()));
 
-        let known_time = 1438269988.to_string();
+        let known_time = 1438269988;
         let calculated_time = block_to_time(config, 1).await.unwrap();
         assert_eq!(known_time, calculated_time);
     }
