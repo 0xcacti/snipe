@@ -36,11 +36,13 @@ mod tests {
 
     // stub of config
     #[test]
-    fn test_block_to_time() {
+    fn test_historical_block_to_time() {
         let config = Config::new(
             Some("https://mainnet.infura.io/v3/".to_string()),
             Some("UTC".to_string()),
         );
         assert_eq!(block_to_time(config, 1), "2021-01-01 00:00:00");
     }
+    #[test]
+    fn test_future_block_to_time() {}
 }
