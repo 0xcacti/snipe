@@ -29,7 +29,7 @@ pub async fn block_to_time(config: Config, block_num: u64) -> Result<u64> {
     // get current block
     let provider = Provider::<Http>::try_from(config.rpc_url())?;
     let current_block = get_current_block_number(&provider).await?;
-    let timestamp = get_block_timestamp(provider, block_num).await?;
+    let timestamp = get_block_timestamp(&provider, block_num).await?;
 
     if current_block >= block_num {
         return Ok(timestamp);
@@ -48,7 +48,7 @@ async fn get_current_block_number(provider: &Provider<Http>) -> Result<u64> {
     Ok(block_number.as_u64())
 }
 
-async fn get_block_timestamp(provider: Provider<Http>, block_num: u64) -> Result<u64> {
+async fn get_block_timestamp(provider: &Provider<Http>, block_num: u64) -> Result<u64> {
     let response = provider.get_block(block_num).await?;
     let block_json = serde_json::to_string(&response)?;
     let block: serde_json::Value = serde_json::from_str(&block_json)?;
@@ -76,6 +76,20 @@ mod tests {
         let calculated_time = block_to_time(config, 1).await.unwrap();
         assert_eq!(known_time, calculated_time);
     }
-    #[test]
-    fn test_future_block_to_time() {}
+    #[tokio::test]
+    async fn test_future_block_to_time() {
+        dotenv().ok();
+        let rpc_url = dotenv!("RPC_URL");
+        let config = Config::new(Some(rpc_url.to_string()), Some("UTC".to_string()));
+        let provider = Provider::<Http>::try_from(config.rpc_url()).unwrap();
+        let current_block = get_current_block_number(&provider).await.unwrap();
+        let current_time = get_block_timestamp(&provider, current_block).await.unwrap();
+        let block_num = current_block + 1;
+        let estimated_time = block_to_time(config, block_num).await.unwrap();
+        println!("current_block: {}", current_block);
+        println!("current_time: {}", current_time);
+        println!("block_num: {}", block_num);
+        println!("estimated_time: {}", estimated_time);
+        assert_eq!(current_time + 12, estimated_time);
+    }
 }
