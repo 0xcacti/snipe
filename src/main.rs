@@ -45,6 +45,13 @@ enum Commands {
         #[arg(required = true)]
         time: String,
     },
+    /// get all available timezones
+    #[command(
+        name = "list-timezones",
+        about = "get all available timezones",
+        visible_alias = "tz"
+    )]
+    ListTimezones,
 }
 
 #[tokio::main]
@@ -64,8 +71,10 @@ async fn main() {
             let time = snipe::block_to_time(config, *block_num);
         }
         Some(Commands::TimeToBlock { time }) => {
-            let block = snipe::time_to_block(config, time);
-            println!("{}", block);
+            let block = snipe::time_to_block(config, time).unwrap();
+        }
+        Some(Commands::ListTimezones) => {
+            let timezones = snipe::list_timezones();
         }
         None => {}
     }
