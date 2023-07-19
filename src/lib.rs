@@ -8,6 +8,12 @@ use ethers::{
 use serde::Deserialize;
 use serde_json;
 
+// ethereum genesis
+const GENESIS: NaiveDateTime = NaiveDateTime::new(
+    NaiveDate::from_ymd_opt(2015, 7, 30).unwrap(),
+    NaiveTime::from_hms_opt(3, 26, 13).unwrap(),
+);
+
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub rpc_url: Option<String>,
@@ -32,10 +38,10 @@ pub async fn block_to_time(config: Config, block_num: u64) -> Result<u64> {
     // get current block
     let provider = Provider::<Http>::try_from(config.rpc_url())?;
     let current_block = get_current_block_number(&provider).await?;
-    let timestamp = get_block_timestamp(&provider, current_block).await?;
     if current_block >= block_num {
-        return Ok(timestamp);
+        return get_block_timestamp(&provider, block_num).await;
     }
+    let timestamp = get_block_timestamp(&provider, current_block).await?;
     let time_difference = 12 * (block_num - current_block);
     return Ok(timestamp + time_difference);
 }
@@ -51,6 +57,7 @@ pub fn list_timezones() {
 
 fn time_to_unix_time(time: &str, time_zone: &str) -> Result<u64> {
     let tz: Tz = time_zone.parse().expect("Invalid time zone.");
+
     println!("time: {}", tz);
 
     let parsed_datetime: DateTime<Tz> = match time.len() {
@@ -61,8 +68,12 @@ fn time_to_unix_time(time: &str, time_zone: &str) -> Result<u64> {
             if year < 2015 {
                 return Err(anyhow::anyhow!("year predates Ethereum"));
             }
-            let d = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
-            let t = NaiveTime::from_hms_opt(0, 0, 0).unwrap(); // Start of the day
+
+            if year == 2015 {
+                return Ok(GENESIS.timestamp() as u64);
+            }
+            let d = NaiveDate::from_ymd_opt(year, 7, 30).unwrap();
+            let t = NaiveTime::from_hms_opt(3, 26, 13).unwrap(); // Start of the day
             let dt = NaiveDateTime::new(d, t);
             tz.from_local_datetime(&dt).single().unwrap()
         }
@@ -176,6 +187,20 @@ fn time_to_unix_time(time: &str, time_zone: &str) -> Result<u64> {
         }
     };
     Ok(parsed_datetime.timestamp() as u64)
+}
+
+fn split_time(time: &str) -> Vec<&str> {
+    let major_components = time.split(" ").collect::<Vec<&str>>();
+    let mut time_components: Vec<&str> = Vec::new();
+    let val = major_components[0].split("-").collect::<Vec<&str>>();
+    time_components.
+    if time_components.len() == 2 {
+
+    }
+}
+
+fn predates_ethereum(time: &str) -> bool {
+    timestamp < 1420070400
 }
 
 fn parse_timezone(time_zone: &str) -> Result<Tz> {
