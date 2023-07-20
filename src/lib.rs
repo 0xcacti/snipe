@@ -8,12 +8,6 @@ use ethers::{
 use serde::Deserialize;
 use serde_json;
 
-// ethereum genesis
-const GENESIS: NaiveDateTime = NaiveDateTime::new(
-    NaiveDate::from_ymd_opt(2015, 7, 30).unwrap(),
-    NaiveTime::from_hms_opt(3, 26, 13).unwrap(),
-);
-
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub rpc_url: Option<String>,
@@ -55,152 +49,45 @@ pub fn list_timezones() {
     TZ_VARIANTS.iter().for_each(|tz| println!("{}", tz));
 }
 
+fn get_genesis() -> NaiveDateTime {
+    NaiveDateTime::parse_from_str("2015-07-30 03:26:13", "%Y-%m-%d %H:%M:%S%").unwrap()
+}
+
 fn time_to_unix_time(time: &str, time_zone: &str) -> Result<u64> {
     let tz: Tz = time_zone.parse().expect("Invalid time zone.");
 
-    println!("time: {}", tz);
+    let time_components = split_time(time);
+    let mut full_datetime_parts = vec!["00"; 6];
+    for (i, component) in time_components.iter().enumerate() {
+        full_datetime_parts[i] = component;
+    }
+    let date_time_num: Vec<u32> = full_datetime_parts
+        .iter()
+        .map(|x| x.parse::<u32>().unwrap())
+        .collect();
+    let datetime = NaiveDateTime::new(
+        NaiveDate::from_ymd_opt(date_time_num[0] as i32, date_time_num[1], date_time_num[2])
+            .unwrap(),
+        NaiveTime::from_hms_opt(date_time_num[3], date_time_num[4], date_time_num[5]).unwrap(),
+    );
 
-    let parsed_datetime: DateTime<Tz> = match time.len() {
-        4 => {
-            let year: i32 = time
-                .parse()
-                .context("failed to parse year into valid number")?;
-            if year < 2015 {
-                return Err(anyhow::anyhow!("year predates Ethereum"));
-            }
+    if datetime < get_genesis() {
+        return Err(anyhow::anyhow!("year predates Ethereum"));
+    }
 
-            if year == 2015 {
-                return Ok(GENESIS.timestamp() as u64);
-            }
-            let d = NaiveDate::from_ymd_opt(year, 7, 30).unwrap();
-            let t = NaiveTime::from_hms_opt(3, 26, 13).unwrap(); // Start of the day
-            let dt = NaiveDateTime::new(d, t);
-            tz.from_local_datetime(&dt).single().unwrap()
-        }
-        7 => {
-            let year: i32 = time[0..4]
-                .parse()
-                .context("failed to parse year into valid number")?;
-            let month: u32 = time[5..7]
-                .parse()
-                .context("failed to parse month into valid number")?;
-            if year < 2015 {
-                return Err(anyhow::anyhow!("year predates Ethereum"));
-            }
-            let d = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
-            let t = NaiveTime::from_hms_opt(0, 0, 0).unwrap(); // Start of the day
-            let dt = NaiveDateTime::new(d, t);
-            tz.from_local_datetime(&dt).single().unwrap()
-        }
-        10 => {
-            let year: i32 = time[0..4]
-                .parse()
-                .context("failed to parse year into valid number")?;
-            let month: u32 = time[5..7]
-                .parse()
-                .context("failed to parse month into valid number")?;
-            let day: u32 = time[8..10]
-                .parse()
-                .context("failed to parse day into valid number")?;
-            if year < 2015 {
-                return Err(anyhow::anyhow!("year predates Ethereum"));
-            }
-            let d = NaiveDate::from_ymd_opt(year, month, day).unwrap();
-            let t = NaiveTime::from_hms_opt(0, 0, 0).unwrap(); // Start of the day
-            let dt = NaiveDateTime::new(d, t);
-            tz.from_local_datetime(&dt).single().unwrap()
-        }
-        13 => {
-            let year: i32 = time[0..4]
-                .parse()
-                .context("failed to parse year into valid number")?;
-            let month: u32 = time[5..7]
-                .parse()
-                .context("failed to parse month into valid number")?;
-            let day: u32 = time[8..10]
-                .parse()
-                .context("failed to parse day into valid number")?;
-            let hour: u32 = time[11..13]
-                .parse()
-                .context("failed to parse hour into valid number")?;
-            if year < 2015 {
-                return Err(anyhow::anyhow!("year predates Ethereum"));
-            }
-            let d = NaiveDate::from_ymd_opt(year, month, day).unwrap();
-            let t = NaiveTime::from_hms_opt(hour, 0, 0).unwrap(); // Start of the hour
-            let dt = NaiveDateTime::new(d, t);
-            tz.from_local_datetime(&dt).single().unwrap()
-        }
-        16 => {
-            let year: i32 = time[0..4]
-                .parse()
-                .context("failed to parse year into valid number")?;
-            let month: u32 = time[5..7]
-                .parse()
-                .context("failed to parse month into valid number")?;
-            let day: u32 = time[8..10]
-                .parse()
-                .context("failed to parse day into valid number")?;
-            let hour: u32 = time[11..13]
-                .parse()
-                .context("failed to parse hour into valid number")?;
-            let minute: u32 = time[14..16]
-                .parse()
-                .context("failed to parse minute into valid number")?;
-            if year < 2015 {
-                return Err(anyhow::anyhow!("year predates Ethereum"));
-            }
-            let d = NaiveDate::from_ymd_opt(year, month, day).unwrap();
-            let t = NaiveTime::from_hms_opt(hour, minute, 0).unwrap(); // Start of the minute
-            let dt = NaiveDateTime::new(d, t);
-            tz.from_local_datetime(&dt).single().unwrap()
-        }
-        19 => {
-            let year: i32 = time[0..4]
-                .parse()
-                .context("failed to parse year into valid number")?;
-            let month: u32 = time[5..7]
-                .parse()
-                .context("failed to parse month into valid number")?;
-            let day: u32 = time[8..10]
-                .parse()
-                .context("failed to parse day into valid number")?;
-            let hour: u32 = time[11..13]
-                .parse()
-                .context("failed to parse hour into valid number")?;
-            let minute: u32 = time[14..16]
-                .parse()
-                .context("failed to parse minute into valid number")?;
-            let second: u32 = time[17..19]
-                .parse()
-                .context("failed to parse second into valid number")?;
-            if year < 2015 {
-                return Err(anyhow::anyhow!("year predates Ethereum"));
-            }
-            let d = NaiveDate::from_ymd_opt(year, month, day).unwrap();
-            let t = NaiveTime::from_hms_opt(hour, minute, second).unwrap();
-            let dt = NaiveDateTime::new(d, t);
-            tz.from_local_datetime(&dt).single().unwrap()
-        }
-        _ => {
-            return Err(anyhow::anyhow!("invalid timestamp format"));
-        }
-    };
-    Ok(parsed_datetime.timestamp() as u64)
+    let timestamp = tz.from_local_datetime(&datetime).unwrap();
+    Ok(timestamp.timestamp() as u64)
 }
 
 fn split_time(time: &str) -> Vec<&str> {
     let major_components = time.split(" ").collect::<Vec<&str>>();
     let mut time_components: Vec<&str> = Vec::new();
-    let val = major_components[0].split("-").collect::<Vec<&str>>();
-    time_components.
-    if time_components.len() == 2 {
-
+    time_components.extend(major_components[0].split("-").collect::<Vec<&str>>());
+    if major_components.len() == 2 {
+        let minor_components = major_components[1].split(":").collect::<Vec<&str>>();
+        time_components.extend(minor_components);
     }
-}
-
-fn predates_ethereum(time: &str) -> bool {
-    timestamp < 1420070400
+    time_components
 }
 
 fn parse_timezone(time_zone: &str) -> Result<Tz> {
@@ -264,6 +151,48 @@ mod tests {
         let tz = parse_timezone("UTC").unwrap();
         println!("tz: {}", tz);
         assert_eq!(tz.name(), "UTC");
+    }
+
+    #[test]
+    fn split_time_to_components() {
+        let time = "2015";
+        let time_components = split_time(time);
+        assert_eq!(time_components[0], "2015");
+
+        let time = "2015-07";
+        let time_components = split_time(time);
+        assert_eq!(time_components[0], "2015");
+        assert_eq!(time_components[1], "07");
+
+        let time = "2015-07-30";
+        let time_components = split_time(time);
+        assert_eq!(time_components[0], "2015");
+        assert_eq!(time_components[1], "07");
+        assert_eq!(time_components[2], "30");
+
+        let time = "2015-07-30 03";
+        let time_components = split_time(time);
+        assert_eq!(time_components[0], "2015");
+        assert_eq!(time_components[1], "07");
+        assert_eq!(time_components[2], "30");
+        assert_eq!(time_components[3], "03");
+
+        let time = "2015-07-30 03:26";
+        let time_components = split_time(time);
+        assert_eq!(time_components[0], "2015");
+        assert_eq!(time_components[1], "07");
+        assert_eq!(time_components[2], "30");
+        assert_eq!(time_components[3], "03");
+        assert_eq!(time_components[4], "26");
+
+        let time = "2015-07-30 03:26:13";
+        let time_components = split_time(time);
+        assert_eq!(time_components[0], "2015");
+        assert_eq!(time_components[1], "07");
+        assert_eq!(time_components[2], "30");
+        assert_eq!(time_components[3], "03");
+        assert_eq!(time_components[4], "26");
+        assert_eq!(time_components[5], "13");
     }
 
     #[test]
