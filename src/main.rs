@@ -1,3 +1,5 @@
+use std::process;
+
 use clap::{crate_version, Parser, Subcommand};
 use figment::{
     providers::{Env, Format, Toml},
@@ -64,12 +66,41 @@ async fn main() {
         .unwrap();
 
     let args = CLIParser::parse();
+    // Check for Bible version
+    match args.rpc_url {
+        Some(rpc_url) => config.rpc_url = Some(rpc_url),
+        None => match config.rpc_url {
+            Some(rpc_url) => config.rpc_url = Some(rpc_url),
+            None => {
+                eprintln!("No RPC URL provided. Please provide a RPC URL using the --rpc-url flag, setting rpc_url in the snipe.toml file, or by setting the SNIPE_RPC_URL environment variable.");
+                process::exit(1);
+            }
+        },
+    }
+
+    match args.timezone {
+        Some(timezone) => config.time_zone = Some(timezone),
+        None => match config.time_zone {
+            Some(timezone) => config.time_zone = Some(timezone),
+            None => config.time_zone = Some("UTC".to_string()),
+        },
+    }
 
     // handle commands
     match &args.command {
         Some(Commands::BlockToTime { block_num }) => {
-            let time = snipe::block_to_time(config, *block_num);
+            let time = snipe::block_to_time(config, *block_num).await;
+            match time {
+                Ok(time) => {
+                    println!("{}", time);
+                }
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    process::exit(1);
+                }
+            }
         }
+
         Some(Commands::TimeToBlock { time }) => {
             let block = snipe::time_to_block(config, time).unwrap();
         }
