@@ -65,6 +65,7 @@ fn time_to_unix_time(time: &str, time_zone: &str) -> Result<u64> {
         .iter()
         .map(|x| x.parse::<u32>().unwrap())
         .collect();
+    
     let datetime = NaiveDateTime::new(
         NaiveDate::from_ymd_opt(date_time_num[0] as i32, date_time_num[1], date_time_num[2])
             .unwrap(),
@@ -72,6 +73,13 @@ fn time_to_unix_time(time: &str, time_zone: &str) -> Result<u64> {
     );
 
     if datetime < get_genesis() {
+        match time_components.len() {
+            1 => {
+                if year == 2015 {
+                    datetime.date().
+                }
+            }
+        }
         return Err(anyhow::anyhow!("year predates Ethereum"));
     }
 
