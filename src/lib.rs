@@ -53,6 +53,14 @@ fn get_genesis() -> NaiveDateTime {
     NaiveDateTime::parse_from_str("2015-07-30 03:26:13", "%Y-%m-%d %H:%M:%S%").unwrap()
 }
 
+fn optimistically_convert_to_genesis(datetime: NaiveDateTime) {
+    let genesis = get_genesis();
+    // here I want to create an algorithm that optimistically convert a datetime to the genesis block
+    // specifically, if a timestamp is provided, such that it is vague enough to be before the
+    // genesis block, but could also be after the genesis block, I want to assume that the user
+    // means the first timestamp from the genesis block
+}
+
 fn time_to_unix_time(time: &str, time_zone: &str) -> Result<u64> {
     let tz: Tz = time_zone.parse().expect("Invalid time zone.");
 
@@ -65,21 +73,14 @@ fn time_to_unix_time(time: &str, time_zone: &str) -> Result<u64> {
         .iter()
         .map(|x| x.parse::<u32>().unwrap())
         .collect();
-    
+
     let datetime = NaiveDateTime::new(
         NaiveDate::from_ymd_opt(date_time_num[0] as i32, date_time_num[1], date_time_num[2])
             .unwrap(),
         NaiveTime::from_hms_opt(date_time_num[3], date_time_num[4], date_time_num[5]).unwrap(),
     );
-
+    // let datetime = optimistically_convert_to_genesis(datetime);
     if datetime < get_genesis() {
-        match time_components.len() {
-            1 => {
-                if year == 2015 {
-                    datetime.date().
-                }
-            }
-        }
         return Err(anyhow::anyhow!("year predates Ethereum"));
     }
 
