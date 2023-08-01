@@ -1,5 +1,5 @@
-use anyhow::{Context, Result};
-use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike};
+use anyhow::Result;
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use chrono_tz::{Tz, TZ_VARIANTS};
 use ethers::{
     prelude::{Http, Provider},
@@ -45,9 +45,10 @@ pub async fn block_to_time(config: Config, block_num: u64) -> Result<String> {
     let tz = parse_timezone(&config.time_zone())?;
     let block_unix = get_block_unix_time(&config, block_num).await?;
     let timestamp = NaiveDateTime::from_timestamp_opt(block_unix as i64, 0).unwrap();
-    let datetime = DateTime::from_utc(timestamp, tz);
-    let datetime_string = datetime.format(config.format()).to_string();
-    Ok(datetime_string)
+    let utc_datetime: DateTime<Utc> = DateTime::from_utc(timestamp, Utc);
+    let datetime = utc_datetime.with_timezone(&tz);
+    let datetime = datetime.format(&config.format()).to_string();
+    Ok(datetime)
 }
 
 pub fn time_to_block(config: Config, time: &str) -> Result<u64> {
@@ -137,6 +138,9 @@ fn time_to_unix(time: &str, time_zone: &str) -> Result<u64> {
         return Err(anyhow::anyhow!("year predates Ethereum"));
     }
 
+    let utc_datetime: DateTime<Utc> = DateTime::from_utc(datetime, Utc);
+    let datetime = utc_datetime.with_timezone(&tz);
+
     Ok(datetime.timestamp() as u64)
 }
 
@@ -184,10 +188,14 @@ mod tests {
     async fn historical_block_to_time() {
         dotenv().ok();
         let rpc_url = dotenv!("RPC_URL");
-        let config = Config::new(Some(rpc_url.to_string()), Some("UTC".to_string()));
+        let config = Config::new(
+            Some(rpc_url.to_string()),
+            Some("UTC".to_string()),
+            Some("%Y-%m-%d %H:%M:%S".to_string()),
+        );
 
         let known_time = 1438269988;
-        let calculated_time = block_to_time(config, 1).await.unwrap();
+        let calculated_time = get_block_unix_time(&config, 1).await.unwrap();
         assert_eq!(known_time, calculated_time);
     }
 
@@ -195,13 +203,17 @@ mod tests {
     async fn future_block_to_time() {
         dotenv().ok();
         let rpc_url = dotenv!("RPC_URL");
-        let config = Config::new(Some(rpc_url.to_string()), Some("UTC".to_string()));
+        let config = Config::new(
+            Some(rpc_url.to_string()),
+            Some("UTC".to_string()),
+            Some("%Y-%m-%d %H:%M:%S".to_string()),
+        );
         let provider = Provider::<Http>::try_from(config.rpc_url()).unwrap();
 
         let current_block = get_current_block_number(&provider).await.unwrap();
         let current_time = get_block_timestamp(&provider, current_block).await.unwrap();
         let block_num = current_block + 2;
-        let estimated_time = block_to_time(config, block_num).await.unwrap();
+        let estimated_time = get_block_unix_time(&config, block_num).await.unwrap();
         assert!(estimated_time > current_time);
     }
 

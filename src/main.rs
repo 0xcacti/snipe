@@ -5,6 +5,7 @@ use figment::{
     providers::{Env, Format, Toml},
     Figment,
 };
+
 use snipe::Config;
 
 /// bible-rs is a command line tool for getting a random verse from the Bible.
@@ -22,7 +23,7 @@ struct CLIParser {
     #[arg(short, long, required = false, global = true)]
     timezone: Option<String>,
 
-    /// The timezone to use
+    /// The format to use
     #[arg(short, long, required = false, global = true)]
     format: Option<String>,
 }
@@ -87,6 +88,14 @@ async fn main() {
         None => match config.time_zone {
             Some(timezone) => config.time_zone = Some(timezone),
             None => config.time_zone = Some("UTC".to_string()),
+        },
+    }
+
+    match args.format {
+        Some(format) => config.format = Some(format),
+        None => match config.format {
+            Some(format) => config.format = Some(format),
+            None => config.format = Some("%Y-%m-%d %H:%M:%S".to_string()),
         },
     }
 
