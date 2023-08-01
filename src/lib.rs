@@ -12,11 +12,20 @@ use serde_json;
 pub struct Config {
     pub rpc_url: Option<String>,
     pub time_zone: Option<String>,
+    pub format: Option<String>,
 }
 
 impl Config {
-    pub fn new(rpc_url: Option<String>, time_zone: Option<String>) -> Config {
-        Config { rpc_url, time_zone }
+    pub fn new(
+        rpc_url: Option<String>,
+        time_zone: Option<String>,
+        format: Option<String>,
+    ) -> Config {
+        Config {
+            rpc_url,
+            time_zone,
+            format,
+        }
     }
 
     pub fn rpc_url(&self) -> &str {
@@ -26,10 +35,28 @@ impl Config {
     pub fn time_zone(&self) -> &str {
         self.time_zone.as_ref().expect("time_zone not set")
     }
+
+    pub fn format(&self) -> &str {
+        self.format.as_ref().expect("format not set")
+    }
 }
 
-pub async fn block_to_time(config: Config, block_num: u64) -> Result<u64> {
-    // get current block
+pub async fn block_to_time(config: Config, block_num: u64) -> Result<String> {
+    let tz = parse_timezone(&config.time_zone())?;
+    let block_unix = get_block_unix_time(&config, block_num).await?;
+    let timestamp = NaiveDateTime::from_timestamp_opt(block_unix as i64, 0).unwrap();
+    let datetime = DateTime::from_utc(timestamp, tz);
+    let datetime_string = datetime.format(config.format()).to_string();
+    Ok(datetime_string)
+}
+
+pub fn time_to_block(config: Config, time: &str) -> Result<u64> {
+    let unix_time = time_to_unix(time, config.time_zone())?;
+
+    Ok(1)
+}
+
+async fn get_block_unix_time(config: &Config, block_num: u64) -> Result<u64> {
     let provider = Provider::<Http>::try_from(config.rpc_url())?;
     let current_block = get_current_block_number(&provider).await?;
     if current_block >= block_num {
@@ -38,12 +65,6 @@ pub async fn block_to_time(config: Config, block_num: u64) -> Result<u64> {
     let timestamp = get_block_timestamp(&provider, current_block).await?;
     let time_difference = 12 * (block_num - current_block);
     return Ok(timestamp + time_difference);
-}
-
-pub fn time_to_block(config: Config, time: &str) -> Result<u64> {
-    let unix_time = time_to_unix(time, config.time_zone())?;
-
-    Ok(1)
 }
 
 pub fn list_timezones() {
@@ -115,9 +136,7 @@ fn time_to_unix(time: &str, time_zone: &str) -> Result<u64> {
     if datetime < get_genesis() {
         return Err(anyhow::anyhow!("year predates Ethereum"));
     }
-    println!("do we fail after date check");
 
-    // let timestamp = tz.from_local_datetime(&datetime).unwrap();
     Ok(datetime.timestamp() as u64)
 }
 
@@ -134,8 +153,6 @@ fn split_time(time: &str) -> Vec<&str> {
 
 fn parse_timezone(time_zone: &str) -> Result<Tz> {
     let tz: Tz = time_zone.parse().expect("Invalid time zone.");
-
-    println!("time: {}", tz);
 
     Ok(tz)
 }

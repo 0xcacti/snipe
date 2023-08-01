@@ -21,6 +21,10 @@ struct CLIParser {
     /// The timezone to use
     #[arg(short, long, required = false, global = true)]
     timezone: Option<String>,
+
+    /// The timezone to use
+    #[arg(short, long, required = false, global = true)]
+    format: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
