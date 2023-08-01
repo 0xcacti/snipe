@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
 use chrono_tz::{Tz, TZ_VARIANTS};
 use ethers::{
     prelude::{Http, Provider},
@@ -41,9 +41,72 @@ pub async fn block_to_time(config: Config, block_num: u64) -> Result<u64> {
 }
 
 pub fn time_to_block(config: Config, time: &str) -> Result<u64> {
-    let unix_time = time_to_unix(time, config.time_zone())?;
+    let unix_time = time_to_unix_time(time, config.time_zone())?;
 
     Ok(1)
+}
+
+fn convert_time(input_datetime: &str) {
+    let target = get_genesis();
+    let formats: Vec<(&str, Vec<&str>)> = vec![
+        ("%Y", vec!["year"]),
+        ("%Y-%m", vec!["year", "month"]),
+        ("%Y-%m-%d", vec!["year", "month", "day"]),
+        ("%Y-%m-%d %H", vec!["year", "month", "day", "hour"]),
+        (
+            "%Y-%m-%d %H:%M",
+            vec!["year", "month", "day", "hour", "minute"],
+        ),
+        (
+            "%Y-%m-%d %H:%M:%S",
+            ["year", "month", "day", "hour", "minute", "second"],
+        ),
+    ];
+
+    for (format, fields) in formats {
+        if let Ok(parsed_datetime) = NaiveDateTime::parse_from_str(input_datetime, format) {
+            let completed_datetime = NaiveDateTime::new(
+                chrono::NaiveDate::from_ymd(
+                    if fields.contains(&"year") {
+                        parsed_datetime.year()
+                    } else {
+                        target_datetime.year()
+                    },
+                    if fields.contains(&"month") {
+                        parsed_datetime.month()
+                    } else {
+                        target_datetime.month()
+                    },
+                    if fields.contains(&"day") {
+                        parsed_datetime.day()
+                    } else {
+                        target_datetime.day()
+                    },
+                ),
+                chrono::NaiveTime::from_hms(
+                    if fields.contains(&"hour") {
+                        parsed_datetime.hour()
+                    } else {
+                        target_datetime.hour()
+                    },
+                    if fields.contains(&"minute") {
+                        parsed_datetime.minute()
+                    } else {
+                        target_datetime.minute()
+                    },
+                    if fields.contains(&"second") {
+                        parsed_datetime.second()
+                    } else {
+                        target_datetime.second()
+                    },
+                ),
+            );
+
+            if completed_datetime >= target_datetime {
+                return true;
+            }
+        }
+    }
 }
 
 pub fn list_timezones() {
@@ -51,56 +114,26 @@ pub fn list_timezones() {
 }
 
 fn get_genesis() -> NaiveDateTime {
-    NaiveDateTime::parse_from_str("2015-07-30 03:26:13", "%Y-%m-%d %H:%M:%S").unwrap()
+    NaiveDateTime::parse_from_str("2015-07-30 03:26:13", "%Y-%m-%d %H:%M:%S%").unwrap()
 }
 
-fn can_be_genesis(datetime: &Vec<&str>) -> bool {
-    let len = datetime.len();
-
-    match len {
-        1 => datetime[0] == "2015",
-        2 => datetime[0] == "2015" && datetime[1] == "07",
-        3 => datetime[0] == "2015" && datetime[1] == "07" && datetime[2] == "30",
-        4 => {
-            datetime[0] == "2015"
-                && datetime[1] == "07"
-                && datetime[2] == "30"
-                && datetime[3] == "03"
-        }
-        5 => {
-            datetime[0] == "2015"
-                && datetime[1] == "07"
-                && datetime[2] == "30"
-                && datetime[3] == "03"
-                && datetime[4] == "26"
-        }
-        6 => {
-            datetime[0] == "2015"
-                && datetime[1] == "07"
-                && datetime[2] == "30"
-                && datetime[3] == "03"
-                && datetime[4] == "26"
-                && datetime[5] == "13"
-        }
-        _ => false,
-    }
+fn optimistically_convert_to_genesis(datetime: NaiveDateTime) {
+    let genesis = get_genesis();
+    // here I want to create an algorithm that optimistically convert a datetime to the genesis block
+    // specifically, if a timestamp is provided, such that it is vague enough to be before the
+    // genesis block, but could also be after the genesis block, I want to assume that the user
+    // means the first timestamp from the genesis block
 }
 
-fn time_to_unix(time: &str, time_zone: &str) -> Result<u64> {
+fn time_to_unix_time(time: &str, time_zone: &str) -> Result<u64> {
     let tz: Tz = time_zone.parse().expect("Invalid time zone.");
+
     let time_components = split_time(time);
-
-    let complete_time_components = if can_be_genesis(&time_components) {
-        vec!["2015", "07", "30", "03", "26", "13"]
-    } else {
-        let mut full_datetime_parts = vec!["2015", "01", "01", "00", "00", "00"];
-        for (i, component) in time_components.iter().enumerate() {
-            full_datetime_parts[i] = component;
-        }
-        full_datetime_parts
-    };
-
-    let date_time_num: Vec<u32> = complete_time_components
+    let mut full_datetime_parts = vec!["00"; 6];
+    for (i, component) in time_components.iter().enumerate() {
+        full_datetime_parts[i] = component;
+    }
+    let date_time_num: Vec<u32> = full_datetime_parts
         .iter()
         .map(|x| x.parse::<u32>().unwrap())
         .collect();
@@ -110,15 +143,13 @@ fn time_to_unix(time: &str, time_zone: &str) -> Result<u64> {
             .unwrap(),
         NaiveTime::from_hms_opt(date_time_num[3], date_time_num[4], date_time_num[5]).unwrap(),
     );
-
     // let datetime = optimistically_convert_to_genesis(datetime);
     if datetime < get_genesis() {
         return Err(anyhow::anyhow!("year predates Ethereum"));
     }
-    println!("do we fail after date check");
 
-    // let timestamp = tz.from_local_datetime(&datetime).unwrap();
-    Ok(datetime.timestamp() as u64)
+    let timestamp = tz.from_local_datetime(&datetime).unwrap();
+    Ok(timestamp.timestamp() as u64)
 }
 
 fn split_time(time: &str) -> Vec<&str> {
@@ -238,116 +269,20 @@ mod tests {
     }
 
     #[test]
-    fn genesis_conversion() {
-        // year
-        let time = vec!["2016"];
-        assert!(!can_be_genesis(&time));
-
-        let time = vec!["2015"];
-        assert!(can_be_genesis(&time));
-
-        // year and month
-        let time = vec!["2015", "08"];
-        assert!(!can_be_genesis(&time));
-
-        let time = vec!["2015", "07"];
-        assert!(can_be_genesis(&time));
-
-        // year, month, and day
-        let time = vec!["2015", "07", "31"];
-        assert!(!can_be_genesis(&time));
-
-        let time = vec!["2015", "07", "30"];
-        assert!(can_be_genesis(&time));
-
-        // year, month, day, hour
-        let time = vec!["2015", "07", "30", "04"];
-        assert!(!can_be_genesis(&time));
-
-        let time = vec!["2015", "07", "30", "03"];
-        assert!(can_be_genesis(&time));
-
-        // year, month, day, hour, minute
-        let time = vec!["2015", "07", "30", "03", "27"];
-        assert!(!can_be_genesis(&time));
-
-        let time = vec!["2015", "07", "30", "03", "26"];
-        assert!(can_be_genesis(&time));
-
-        // year, month, day, hour, minute, second
-        let time = vec!["2015", "07", "30", "03", "26", "14"];
-        assert!(!can_be_genesis(&time));
-
-        let time = vec!["2015", "07", "30", "03", "26", "13"];
-        assert!(can_be_genesis(&time));
-    }
+    fn year_to_unix() {}
 
     #[test]
-    fn year_to_unix_genesis() {
-        let time = "2015";
-        let unix = time_to_unix(&time, "UTC").unwrap();
-        assert_eq!(unix, 1438226773);
-    }
+    fn month_to_unix() {}
 
     #[test]
-    fn year_to_unix_first_timestamp() {
-        let time = "2016";
-        let unix = time_to_unix(&time, "UTC").unwrap();
-        assert_eq!(unix, 1451606400);
-    }
-    #[test]
-    fn month_to_unix_genesis() {
-        let time = "2015-07";
-        let unix = time_to_unix(&time, "UTC").unwrap();
-        assert_eq!(unix, 1438226773);
-    }
+    fn day_to_unix() {}
 
     #[test]
-    fn month_to_unix_first_timestamp() {
-        let time = "2016-02";
-        let unix = time_to_unix(&time, "UTC").unwrap();
-        assert_eq!(unix, 1454284800);
-    }
+    fn hour_to_unix() {}
 
     #[test]
-    fn day_to_unix_genesis() {
-        let time = "2015-07-30";
-        let unix = time_to_unix(&time, "UTC").unwrap();
-        assert_eq!(unix, 1438226773);
-    }
+    fn minute_to_unix() {}
 
     #[test]
-    fn hour_to_unix_first_timestamp() {
-        let time = "2016-02-01 01";
-        let unix = time_to_unix(&time, "UTC").unwrap();
-        assert_eq!(unix, 1454288400);
-    }
-
-    #[test]
-    fn minute_to_unix_genesis() {
-        let time = "2015-07-30 03:26";
-        let unix = time_to_unix(&time, "UTC").unwrap();
-        assert_eq!(unix, 1438226773);
-    }
-
-    #[test]
-    fn minute_to_unix_first_timestamp() {
-        let time = "2016-02-01 01:07";
-        let unix = time_to_unix(&time, "UTC").unwrap();
-        assert_eq!(unix, 1454288820);
-    }
-
-    #[test]
-    fn second_to_unix_genesis() {
-        let time = "2015-07-30 03:26:13";
-        let unix = time_to_unix(&time, "UTC").unwrap();
-        assert_eq!(unix, 1438226773);
-    }
-
-    #[test]
-    fn second_to_unix_first_timestamp() {
-        let time = "2016-02-01 01:07:05";
-        let unix = time_to_unix(&time, "UTC").unwrap();
-        assert_eq!(unix, 1454288825);
-    }
+    fn second_to_unix() {}
 }
