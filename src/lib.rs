@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike, Utc};
 use chrono_tz::{Tz, TZ_VARIANTS};
 use ethers::{
     prelude::{Http, Provider},
@@ -106,8 +106,15 @@ fn can_be_genesis(datetime: &Vec<&str>) -> bool {
 
 fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
     let tz: Tz = config.time_zone().parse().expect("Invalid time zone.");
-    let naive_date = NaiveDateTime::parse_from_str(time, config.format())?;
-    DateTime::parse_from_str(s, fmt)
+    let naive_datetime = NaiveDateTime::parse_from_str(time, config.format())?;
+    let aware_datetime = tz.with_ymd_and_hms(
+        naive_datetime.year(),
+        naive_datetime.month(),
+        naive_datetime.day(),
+        naive_datetime.hour(),
+        naive_datetime.minute(),
+        naive_datetime.second(),
+    );
     let tz_dt = tz
         .from_local_datetime(&naive_date)
         .single()
