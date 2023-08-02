@@ -16,15 +16,11 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(
-        rpc_url: Option<String>,
-        time_zone: Option<String>,
-        format: Option<String>,
-    ) -> Config {
+    pub fn new(rpc_url: String, time_zone: String, format: String) -> Config {
         Config {
-            rpc_url,
-            time_zone,
-            format,
+            rpc_url: Some(rpc_url),
+            time_zone: Some(time_zone),
+            format: Some(format),
         }
     }
 
