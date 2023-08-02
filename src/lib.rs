@@ -48,7 +48,7 @@ pub async fn block_to_time(config: Config, block_num: u64) -> Result<String> {
 }
 
 pub fn time_to_block(config: Config, time: &str) -> Result<u64> {
-    let unix_time = time_to_unix(time, config.time_zone())?;
+    let unix_time = time_to_unix(&config, time)?;
 
     Ok(1)
 }
@@ -104,8 +104,15 @@ fn can_be_genesis(datetime: &Vec<&str>) -> bool {
     }
 }
 
-fn time_to_unix(time: &str, time_zone: &str) -> Result<u64> {
-    let tz: Tz = time_zone.parse().expect("Invalid time zone.");
+fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
+    let tz: Tz = config.time_zone().parse().expect("Invalid time zone.");
+    let naive_date = NaiveDateTime::parse_from_str(time, config.format())?;
+    DateTime::parse_from_str(s, fmt)
+    let tz_dt = tz
+        .from_local_datetime(&naive_date)
+        .single()
+        .ok_or("ambiguous or non-existent local time")?;
+
     let time_components = split_time(time);
 
     let complete_time_components = if can_be_genesis(&time_components) {
@@ -129,7 +136,6 @@ fn time_to_unix(time: &str, time_zone: &str) -> Result<u64> {
         NaiveTime::from_hms_opt(date_time_num[3], date_time_num[4], date_time_num[5]).unwrap(),
     );
 
-    // let datetime = optimistically_convert_to_genesis(datetime);
     if datetime < get_genesis() {
         return Err(anyhow::anyhow!("year predates Ethereum"));
     }
@@ -185,9 +191,9 @@ mod tests {
         dotenv().ok();
         let rpc_url = dotenv!("RPC_URL");
         let config = Config::new(
-            Some(rpc_url.to_string()),
-            Some("UTC".to_string()),
-            Some("%Y-%m-%d %H:%M:%S".to_string()),
+            rpc_url.to_string(),
+            "UTC".to_string(),
+            "%Y-%m-%d %H:%M:%S".to_string(),
         );
 
         let known_time = 1438269988;
@@ -200,9 +206,9 @@ mod tests {
         dotenv().ok();
         let rpc_url = dotenv!("RPC_URL");
         let config = Config::new(
-            Some(rpc_url.to_string()),
-            Some("UTC".to_string()),
-            Some("%Y-%m-%d %H:%M:%S".to_string()),
+            rpc_url.to_string(),
+            "UTC".to_string(),
+            "%Y-%m-%d %H:%M:%S".to_string(),
         );
         let provider = Provider::<Http>::try_from(config.rpc_url()).unwrap();
 
