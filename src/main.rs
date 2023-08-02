@@ -87,11 +87,6 @@ async fn main() {
         .or_else(|| config.time_zone)
         .or_else(|| Some("UTC".to_string()));
 
-    config.format = args
-        .format
-        .or_else(|| config.format)
-        .or_else(|| Some("%Y-%m-%d %H:%M:%S %z".to_string()));
-
     // handle commandsk
     match &args.command {
         Some(Commands::BlockToTime { block_num }) => {

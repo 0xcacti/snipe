@@ -12,15 +12,13 @@ use serde_json;
 pub struct Config {
     pub rpc_url: Option<String>,
     pub time_zone: Option<String>,
-    pub format: Option<String>,
 }
 
 impl Config {
-    pub fn new(rpc_url: String, time_zone: String, format: String) -> Config {
+    pub fn new(rpc_url: String, time_zone: String) -> Config {
         Config {
             rpc_url: Some(rpc_url),
             time_zone: Some(time_zone),
-            format: Some(format),
         }
     }
 
@@ -31,10 +29,6 @@ impl Config {
     pub fn time_zone(&self) -> &str {
         self.time_zone.as_ref().expect("time_zone not set")
     }
-
-    pub fn format(&self) -> &str {
-        self.format.as_ref().expect("format not set")
-    }
 }
 
 pub async fn block_to_time(config: Config, block_num: u64) -> Result<String> {
@@ -43,8 +37,7 @@ pub async fn block_to_time(config: Config, block_num: u64) -> Result<String> {
     let timestamp = NaiveDateTime::from_timestamp_opt(block_unix as i64, 0).unwrap();
     let utc_datetime: DateTime<Utc> = DateTime::from_utc(timestamp, Utc);
     let datetime = utc_datetime.with_timezone(&tz);
-    let datetime = datetime.format(&config.format()).to_string();
-    Ok(datetime)
+    Ok(datetime.to_string())
 }
 
 pub fn time_to_block(config: &Config, time: &str) -> Result<u64> {
@@ -104,26 +97,8 @@ fn can_be_genesis(datetime: &Vec<&str>) -> bool {
     }
 }
 
-fn parse_time_with_format(time: &str, format: &str) -> Result<NaiveDateTime> {
-    let dt = NaiveDateTime::parse_from_str(time, format);
-    match dt {
-        Ok(dt) => Ok(dt),
-        Err(NotEnough) => Err(
-        Err(_) => Err(anyhow!("Failed to parse time: {} with format: {}", time, format)),
-    }
-}
-
 fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
     let tz: Tz = config.time_zone().parse().expect("Invalid time zone.");
-    let naive_datetime =
-        NaiveDateTime::parse_from_str(time, config.format()).with_context(|| {
-            format!(
-                "Failed to parse time: {} with format: {}",
-                time,
-                config.format()
-            )
-        })?;
-    println!("Naive: {:?}", naive_datetime);
 
     // let aware_datetime = tz.with_ymd_and_hms(
     //     naive_datetime.year(),
@@ -165,17 +140,11 @@ fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
     let datetime = utc_datetime.with_timezone(&tz);
 
     Ok(datetime.timestamp() as u64)
-}k
+}
 
 fn split_time(time: &str) -> Vec<&str> {
-    let major_components = time.split(" ").collect::<Vec<&str>>();
-    let mut time_components: Vec<&str> = Vec::new();
-    time_components.extend(major_components[0].split("-").collect::<Vec<&str>>());
-    if major_components.len() == 2 {
-        let minor_components = major_components[1].split(":").collect::<Vec<&str>>();
-        time_components.extend(minor_components);
-    }
-    time_components
+    let parts: Vec<&str> = time.split(&['-', ' ', ':'][..]).collect();
+    parts
 }
 
 fn parse_timezone(time_zone: &str) -> Result<Tz> {
@@ -210,37 +179,20 @@ mod tests {
     fn get_test_config() -> Config {
         dotenv().ok();
         let rpc_url = dotenv!("RPC_URL");
-        Config::new(
-            rpc_url.to_string(),
-            "UTC".to_string(),
-            "%Y-%m-%d %H:%M:%S".to_string(),
-        )
+        Config::new(rpc_url.to_string(), "UTC".to_string())
     }
     // stub of config
     #[tokio::test]
     async fn historical_block_to_time() {
-        dotenv().ok();
-        let rpc_url = dotenv!("RPC_URL");
-        let config = Config::new(
-            rpc_url.to_string(),
-            "UTC".to_string(),
-            "%Y-%m-%d %H:%M:%S".to_string(),
-        );
-
         let known_time = 1438269988;
-        let calculated_time = get_block_unix_time(&config, 1).await.unwrap();
+        let calculated_time = get_block_unix_time(&get_test_config(), 1).await.unwrap();
         assert_eq!(known_time, calculated_time);
     }
 
     #[tokio::test]
     async fn future_block_to_time() {
         dotenv().ok();
-        let rpc_url = dotenv!("RPC_URL");
-        let config = Config::new(
-            rpc_url.to_string(),
-            "UTC".to_string(),
-            "%Y-%m-%d %H:%M:%S".to_string(),
-        );
+        let config = get_test_config();
         let provider = Provider::<Http>::try_from(config.rpc_url()).unwrap();
 
         let current_block = get_current_block_number(&provider).await.unwrap();
