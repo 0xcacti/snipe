@@ -108,7 +108,16 @@ async fn main() {
         }
 
         Some(Commands::TimeToBlock { time }) => {
-            let block = snipe::time_to_block(config, time).unwrap();
+            let block = snipe::time_to_block(&config, time);
+            match block {
+                Ok(block) => {
+                    println!("{}", block);
+                }
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    process::exit(1);
+                }
+            }
         }
         Some(Commands::ListTimezones) => {
             let timezones = snipe::list_timezones();

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike, Utc};
 use chrono_tz::{Tz, TZ_VARIANTS};
 use ethers::{
@@ -47,7 +47,7 @@ pub async fn block_to_time(config: Config, block_num: u64) -> Result<String> {
     Ok(datetime)
 }
 
-pub fn time_to_block(config: Config, time: &str) -> Result<u64> {
+pub fn time_to_block(config: &Config, time: &str) -> Result<u64> {
     let unix_time = time_to_unix(&config, time)?;
 
     Ok(1)
@@ -104,21 +104,35 @@ fn can_be_genesis(datetime: &Vec<&str>) -> bool {
     }
 }
 
+fn parse_time_with_format(time: &str, format: &str) -> Result<NaiveDateTime> {
+    let dt = NaiveDateTime::parse_from_str(time, format);
+    match dt {
+        Ok(dt) => Ok(dt),
+        Err(NotEnough) => Err(
+        Err(_) => Err(anyhow!("Failed to parse time: {} with format: {}", time, format)),
+    }
+}
+
 fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
     let tz: Tz = config.time_zone().parse().expect("Invalid time zone.");
-    let naive_datetime = NaiveDateTime::parse_from_str(time, config.format())?;
-    let aware_datetime = tz.with_ymd_and_hms(
-        naive_datetime.year(),
-        naive_datetime.month(),
-        naive_datetime.day(),
-        naive_datetime.hour(),
-        naive_datetime.minute(),
-        naive_datetime.second(),
-    );
-    let tz_dt = tz
-        .from_local_datetime(&naive_date)
-        .single()
-        .ok_or("ambiguous or non-existent local time")?;
+    let naive_datetime =
+        NaiveDateTime::parse_from_str(time, config.format()).with_context(|| {
+            format!(
+                "Failed to parse time: {} with format: {}",
+                time,
+                config.format()
+            )
+        })?;
+    println!("Naive: {:?}", naive_datetime);
+
+    // let aware_datetime = tz.with_ymd_and_hms(
+    //     naive_datetime.year(),
+    //     naive_datetime.month(),
+    //     naive_datetime.day(),
+    //     naive_datetime.hour(),
+    //     naive_datetime.minute(),
+    //     naive_datetime.second(),
+    // );
 
     let time_components = split_time(time);
 
@@ -151,7 +165,7 @@ fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
     let datetime = utc_datetime.with_timezone(&tz);
 
     Ok(datetime.timestamp() as u64)
-}
+}k
 
 fn split_time(time: &str) -> Vec<&str> {
     let major_components = time.split(" ").collect::<Vec<&str>>();
@@ -192,6 +206,16 @@ mod tests {
 
     use dotenv::dotenv;
     use dotenv_codegen::dotenv;
+
+    fn get_test_config() -> Config {
+        dotenv().ok();
+        let rpc_url = dotenv!("RPC_URL");
+        Config::new(
+            rpc_url.to_string(),
+            "UTC".to_string(),
+            "%Y-%m-%d %H:%M:%S".to_string(),
+        )
+    }
     // stub of config
     #[tokio::test]
     async fn historical_block_to_time() {
@@ -323,69 +347,69 @@ mod tests {
     #[test]
     fn year_to_unix_genesis() {
         let time = "2015";
-        let unix = time_to_unix(&time, "UTC").unwrap();
+        let unix = time_to_unix(&get_test_config(), &time).unwrap();
         assert_eq!(unix, 1438226773);
     }
 
     #[test]
     fn year_to_unix_first_timestamp() {
         let time = "2016";
-        let unix = time_to_unix(&time, "UTC").unwrap();
+        let unix = time_to_unix(&get_test_config(), &time).unwrap();
         assert_eq!(unix, 1451606400);
     }
     #[test]
     fn month_to_unix_genesis() {
         let time = "2015-07";
-        let unix = time_to_unix(&time, "UTC").unwrap();
+        let unix = time_to_unix(&get_test_config(), &time).unwrap();
         assert_eq!(unix, 1438226773);
     }
 
     #[test]
     fn month_to_unix_first_timestamp() {
         let time = "2016-02";
-        let unix = time_to_unix(&time, "UTC").unwrap();
+        let unix = time_to_unix(&get_test_config(), &time).unwrap();
         assert_eq!(unix, 1454284800);
     }
 
     #[test]
     fn day_to_unix_genesis() {
         let time = "2015-07-30";
-        let unix = time_to_unix(&time, "UTC").unwrap();
+        let unix = time_to_unix(&get_test_config(), &time).unwrap();
         assert_eq!(unix, 1438226773);
     }
 
     #[test]
     fn hour_to_unix_first_timestamp() {
         let time = "2016-02-01 01";
-        let unix = time_to_unix(&time, "UTC").unwrap();
+        let unix = time_to_unix(&get_test_config(), &time).unwrap();
         assert_eq!(unix, 1454288400);
     }
 
     #[test]
     fn minute_to_unix_genesis() {
         let time = "2015-07-30 03:26";
-        let unix = time_to_unix(&time, "UTC").unwrap();
+        let unix = time_to_unix(&get_test_config(), &time).unwrap();
         assert_eq!(unix, 1438226773);
     }
 
     #[test]
     fn minute_to_unix_first_timestamp() {
         let time = "2016-02-01 01:07";
-        let unix = time_to_unix(&time, "UTC").unwrap();
+        let unix = time_to_unix(&get_test_config(), &time).unwrap();
         assert_eq!(unix, 1454288820);
     }
 
     #[test]
     fn second_to_unix_genesis() {
         let time = "2015-07-30 03:26:13";
-        let unix = time_to_unix(&time, "UTC").unwrap();
+        let unix = time_to_unix(&get_test_config(), &time).unwrap();
         assert_eq!(unix, 1438226773);
     }
 
     #[test]
     fn second_to_unix_first_timestamp() {
         let time = "2016-02-01 01:07:05";
-        let unix = time_to_unix(&time, "UTC").unwrap();
+        let unix = time_to_unix(&get_test_config(), &time).unwrap();
         assert_eq!(unix, 1454288825);
     }
 }
