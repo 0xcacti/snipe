@@ -110,6 +110,38 @@ fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
     // );
 
     let time_components = split_time(time);
+    let mut complete_naive_time = vec!["2015", "01", "01", "00", "00", "00"];
+
+    for (i, component) in time_components.iter().enumerate() {
+        complete_naive_time[i] = component;
+
+    let date_time_num: Vec<u32> = complete_time_components
+        .iter()
+        .map(|x| x.parse::<u32>().unwrap())
+        .collect();
+
+    let naive_datetime = NaiveDateTime::new(
+        NaiveDate::from_ymd_opt(date_time_num[0] as i32, date_time_num[1], date_time_num[2])
+            .unwrap(),
+        NaiveTime::from_hms_opt(date_time_num[3], date_time_num[4], date_time_num[5]).unwrap(),
+    );
+
+
+    let aware_datetime = tz.with_ymd_and_hms(
+         naive_datetime.year(),
+         naive_datetime.month(),
+         naive_datetime.day(),
+         naive_datetime.hour(),
+         naive_datetime.minute(),
+         naive_datetime.second(),
+    );
+
+    // @TODO
+    // convert this into a unix datetime object
+    // cross reference with the original timecomponents and see if it could be genesis 
+    // if it could be genesis, then return the genesis 
+    // else return the unix timestamp
+    //
 
     let complete_time_components = if can_be_genesis(&time_components) {
         vec!["2015", "07", "30", "03", "26", "13"]
