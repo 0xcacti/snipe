@@ -31,4 +31,10 @@ This function provides a live updating countdown to the specified block number.
 List all timezones available to the user 
 
 
+TODO 
+add testing to make sure timezone management is done correctly and that 
+the genesis / 01 conversion is still managed properly.  
 
+implement binary search for block, return 
+
+done
