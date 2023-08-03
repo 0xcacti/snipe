@@ -100,22 +100,13 @@ fn can_be_genesis(datetime: &Vec<&str>) -> bool {
 fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
     let tz: Tz = config.time_zone().parse().expect("Invalid time zone.");
 
-    // let aware_datetime = tz.with_ymd_and_hms(
-    //     naive_datetime.year(),
-    //     naive_datetime.month(),
-    //     naive_datetime.day(),
-    //     naive_datetime.hour(),
-    //     naive_datetime.minute(),
-    //     naive_datetime.second(),
-    // );
-
     let time_components = split_time(time);
     let mut complete_naive_time = vec!["2015", "01", "01", "00", "00", "00"];
-
     for (i, component) in time_components.iter().enumerate() {
         complete_naive_time[i] = component;
+    }
 
-    let date_time_num: Vec<u32> = complete_time_components
+    let date_time_num: Vec<u32> = complete_naive_time
         .iter()
         .map(|x| x.parse::<u32>().unwrap())
         .collect();
@@ -126,32 +117,33 @@ fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
         NaiveTime::from_hms_opt(date_time_num[3], date_time_num[4], date_time_num[5]).unwrap(),
     );
 
+    let aware_datetime = tz
+        .with_ymd_and_hms(
+            naive_datetime.year(),
+            naive_datetime.month(),
+            naive_datetime.day(),
+            naive_datetime.hour(),
+            naive_datetime.minute(),
+            naive_datetime.second(),
+        )
+        .unwrap();
 
-    let aware_datetime = tz.with_ymd_and_hms(
-         naive_datetime.year(),
-         naive_datetime.month(),
-         naive_datetime.day(),
-         naive_datetime.hour(),
-         naive_datetime.minute(),
-         naive_datetime.second(),
-    );
+    let utc_datetime = aware_datetime
+        .with_timezone(&Utc)
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+    let utc_time_components = split_time(utc_datetime.as_str());
 
-    // @TODO
-    // convert this into a unix datetime object
-    // cross reference with the original timecomponents and see if it could be genesis 
-    // if it could be genesis, then return the genesis 
-    // else return the unix timestamp
-    //
-
-    let complete_time_components = if can_be_genesis(&time_components) {
-        vec!["2015", "07", "30", "03", "26", "13"]
-    } else {
-        let mut full_datetime_parts = vec!["2015", "01", "01", "00", "00", "00"];
-        for (i, component) in time_components.iter().enumerate() {
-            full_datetime_parts[i] = component;
-        }
-        full_datetime_parts
-    };
+    let complete_time_components =
+        if can_be_genesis(&utc_time_components[..time_components.len()].to_vec()) {
+            vec!["2015", "07", "30", "03", "26", "13"]
+        } else {
+            let mut full_datetime_parts = vec!["2015", "01", "01", "00", "00", "00"];
+            for (i, component) in time_components.iter().enumerate() {
+                full_datetime_parts[i] = component;
+            }
+            full_datetime_parts
+        };
 
     let date_time_num: Vec<u32> = complete_time_components
         .iter()
@@ -168,6 +160,7 @@ fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
         return Err(anyhow::anyhow!("year predates Ethereum"));
     }
 
+    // can this be just tz
     let utc_datetime: DateTime<Utc> = DateTime::from_utc(datetime, Utc);
     let datetime = utc_datetime.with_timezone(&tz);
 
