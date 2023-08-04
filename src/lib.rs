@@ -132,6 +132,7 @@ fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
         .with_timezone(&Utc)
         .format("%Y-%m-%d %H:%M:%S")
         .to_string();
+    println!("UTC: {}", utc_datetime);
     let utc_time_components = split_time(utc_datetime.as_str());
 
     let complete_time_components =
@@ -162,9 +163,8 @@ fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
 
     // can this be just tz
     let utc_datetime: DateTime<Utc> = DateTime::from_utc(datetime, Utc);
-    let datetime = utc_datetime.with_timezone(&tz);
 
-    Ok(datetime.timestamp() as u64)
+    Ok(utc_datetime.timestamp() as u64)
 }
 
 fn split_time(time: &str) -> Vec<&str> {
@@ -190,7 +190,6 @@ async fn get_block_timestamp(provider: &Provider<Http>, block_num: u64) -> Resul
     let timestamp = block["timestamp"].as_str().unwrap();
     let timestamp_hex = &timestamp[2..];
     let timestamp = u64::from_str_radix(timestamp_hex, 16)?;
-
     Ok(timestamp)
 }
 
@@ -211,11 +210,13 @@ mod tests {
     fn get_genesis_unix() -> u64 {
         1438269973
     }
+
     // stub of config
     #[tokio::test]
     async fn historical_block_to_time() {
         let known_time = 1438269988;
         let calculated_time = get_block_unix_time(&get_test_config(), 1).await.unwrap();
+        println!("known: {}, calculated: {}", known_time, calculated_time);
         assert_eq!(known_time, calculated_time);
     }
 
@@ -369,11 +370,9 @@ mod tests {
 
     #[test]
     fn minute_to_unix_genesis() {
-        let mut config = get_test_config();
         let time = "2015-07-30 15:26";
-        let unix = time_to_unix(&config, &time).unwrap();
+        let unix = time_to_unix(&get_test_config(), &time).unwrap();
         assert_eq!(unix, get_genesis_unix());
-        config.time_zone = Some("EST".to_string());
     }
 
     #[test]
@@ -395,5 +394,14 @@ mod tests {
         let time = "2016-02-01 01:07:05";
         let unix = time_to_unix(&get_test_config(), &time).unwrap();
         assert_eq!(unix, 1454288825);
+    }
+
+    #[test]
+    fn tz_time_to_unix_genesis() {
+        let mut config = get_test_config();
+        config.time_zone = Some("America/New_York".to_string());
+        let time = "2015-07-30 11:26:13";
+        let unix = time_to_unix(&config, &time).unwrap();
+        assert_eq!(unix, get_genesis_unix());
     }
 }
