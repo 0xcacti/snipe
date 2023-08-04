@@ -115,7 +115,7 @@ async fn main() {
             }
         }
         Some(Commands::ListTimezones) => {
-            let timezones = snipe::list_timezones();
+            snipe::list_timezones();
         }
         None => {}
     }

@@ -62,7 +62,7 @@ pub fn list_timezones() {
 }
 
 fn get_genesis() -> NaiveDateTime {
-    NaiveDateTime::parse_from_str("2015-07-30 03:26:13", "%Y-%m-%d %H:%M:%S").unwrap()
+    NaiveDateTime::parse_from_str("2015-07-30 15:26:13", "%Y-%m-%d %H:%M:%S").unwrap()
 }
 
 fn can_be_genesis(datetime: &Vec<&str>) -> bool {
@@ -76,20 +76,20 @@ fn can_be_genesis(datetime: &Vec<&str>) -> bool {
             datetime[0] == "2015"
                 && datetime[1] == "07"
                 && datetime[2] == "30"
-                && datetime[3] == "03"
+                && datetime[3] == "15"
         }
         5 => {
             datetime[0] == "2015"
                 && datetime[1] == "07"
                 && datetime[2] == "30"
-                && datetime[3] == "03"
+                && datetime[3] == "15"
                 && datetime[4] == "26"
         }
         6 => {
             datetime[0] == "2015"
                 && datetime[1] == "07"
                 && datetime[2] == "30"
-                && datetime[3] == "03"
+                && datetime[3] == "15"
                 && datetime[4] == "26"
                 && datetime[5] == "13"
         }
@@ -136,7 +136,7 @@ fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
 
     let complete_time_components =
         if can_be_genesis(&utc_time_components[..time_components.len()].to_vec()) {
-            vec!["2015", "07", "30", "03", "26", "13"]
+            vec!["2015", "07", "30", "15", "26", "13"]
         } else {
             let mut full_datetime_parts = vec!["2015", "01", "01", "00", "00", "00"];
             for (i, component) in time_components.iter().enumerate() {
@@ -201,10 +201,15 @@ mod tests {
     use dotenv::dotenv;
     use dotenv_codegen::dotenv;
 
+    // helpers
     fn get_test_config() -> Config {
         dotenv().ok();
         let rpc_url = dotenv!("RPC_URL");
         Config::new(rpc_url.to_string(), "UTC".to_string())
+    }
+
+    fn get_genesis_unix() -> u64 {
+        1438269973
     }
     // stub of config
     #[tokio::test]
@@ -300,24 +305,24 @@ mod tests {
         assert!(can_be_genesis(&time));
 
         // year, month, day, hour
-        let time = vec!["2015", "07", "30", "04"];
+        let time = vec!["2015", "07", "30", "16"];
         assert!(!can_be_genesis(&time));
 
-        let time = vec!["2015", "07", "30", "03"];
+        let time = vec!["2015", "07", "30", "15"];
         assert!(can_be_genesis(&time));
 
         // year, month, day, hour, minute
-        let time = vec!["2015", "07", "30", "03", "27"];
+        let time = vec!["2015", "07", "30", "15", "27"];
         assert!(!can_be_genesis(&time));
 
-        let time = vec!["2015", "07", "30", "03", "26"];
+        let time = vec!["2015", "07", "30", "15", "26"];
         assert!(can_be_genesis(&time));
 
         // year, month, day, hour, minute, second
-        let time = vec!["2015", "07", "30", "03", "26", "14"];
+        let time = vec!["2015", "07", "30", "15", "26", "14"];
         assert!(!can_be_genesis(&time));
 
-        let time = vec!["2015", "07", "30", "03", "26", "13"];
+        let time = vec!["2015", "07", "30", "15", "26", "13"];
         assert!(can_be_genesis(&time));
     }
 
@@ -325,7 +330,7 @@ mod tests {
     fn year_to_unix_genesis() {
         let time = "2015";
         let unix = time_to_unix(&get_test_config(), &time).unwrap();
-        assert_eq!(unix, 1438226773);
+        assert_eq!(unix, get_genesis_unix());
     }
 
     #[test]
@@ -338,7 +343,7 @@ mod tests {
     fn month_to_unix_genesis() {
         let time = "2015-07";
         let unix = time_to_unix(&get_test_config(), &time).unwrap();
-        assert_eq!(unix, 1438226773);
+        assert_eq!(unix, get_genesis_unix());
     }
 
     #[test]
@@ -352,7 +357,7 @@ mod tests {
     fn day_to_unix_genesis() {
         let time = "2015-07-30";
         let unix = time_to_unix(&get_test_config(), &time).unwrap();
-        assert_eq!(unix, 1438226773);
+        assert_eq!(unix, get_genesis_unix());
     }
 
     #[test]
@@ -364,9 +369,11 @@ mod tests {
 
     #[test]
     fn minute_to_unix_genesis() {
-        let time = "2015-07-30 03:26";
-        let unix = time_to_unix(&get_test_config(), &time).unwrap();
-        assert_eq!(unix, 1438226773);
+        let mut config = get_test_config();
+        let time = "2015-07-30 15:26";
+        let unix = time_to_unix(&config, &time).unwrap();
+        assert_eq!(unix, get_genesis_unix());
+        config.time_zone = Some("EST".to_string());
     }
 
     #[test]
@@ -378,9 +385,9 @@ mod tests {
 
     #[test]
     fn second_to_unix_genesis() {
-        let time = "2015-07-30 03:26:13";
+        let time = "2015-07-30 15:26:13";
         let unix = time_to_unix(&get_test_config(), &time).unwrap();
-        assert_eq!(unix, 1438226773);
+        assert_eq!(unix, get_genesis_unix());
     }
 
     #[test]
