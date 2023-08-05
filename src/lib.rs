@@ -161,9 +161,7 @@ fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
         return Err(anyhow::anyhow!("year predates Ethereum"));
     }
 
-    // can this be just tz
     let utc_datetime: DateTime<Utc> = DateTime::from_utc(datetime, Utc);
-
     Ok(utc_datetime.timestamp() as u64)
 }
 
