@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike, Utc};
 use chrono_tz::{Tz, TZ_VARIANTS};
 use ethers::{
@@ -10,20 +10,20 @@ use serde_json;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub rpc_url: Option<String>,
+    pub snipe_rpc_url: Option<String>,
     pub time_zone: Option<String>,
 }
 
 impl Config {
-    pub fn new(rpc_url: String, time_zone: String) -> Config {
+    pub fn new(snipe_rpc_url: String, time_zone: String) -> Config {
         Config {
-            rpc_url: Some(rpc_url),
+            snipe_rpc_url: Some(snipe_rpc_url),
             time_zone: Some(time_zone),
         }
     }
 
-    pub fn rpc_url(&self) -> &str {
-        self.rpc_url.as_ref().expect("rpc_url not set")
+    pub fn snipe_rpc_url(&self) -> &str {
+        self.snipe_rpc_url.as_ref().expect("snipe_rpc_url not set")
     }
 
     pub fn time_zone(&self) -> &str {
@@ -31,15 +31,30 @@ impl Config {
     }
 }
 
+/// Convert an Ethereum blocknumber to a timestamp
+/// if the block number has yet to occur it will return a simple prediction
+/// of the timestamp achieved by adding 12 seconds for every block between
+/// the current requested block
 pub async fn block_to_time(config: Config, block_num: u64) -> Result<String> {
     let tz = parse_timezone(&config.time_zone())?;
     let block_unix = get_block_unix_time(&config, block_num).await?;
-    let timestamp = NaiveDateTime::from_timestamp_opt(block_unix as i64, 0).unwrap();
+
+    let timestamp = NaiveDateTime::from_timestamp_opt(block_unix as i64, 0).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Could not convert block unix time to NaiveDateTime: {}",
+            block_unix
+        )
+    })?;
+
     let utc_datetime: DateTime<Utc> = DateTime::from_utc(timestamp, Utc);
     let datetime = utc_datetime.with_timezone(&tz);
     Ok(datetime.to_string())
 }
 
+/// Convert a timestamp in the form YYYY-MM-DD HH:MM:SS
+/// to an Ethereum block number.The first block to occur
+/// after or at the timestamp will be returned.
+/// if the timestamp has yet to occur it will error.
 pub async fn time_to_block(config: &Config, time: &str) -> Result<u64> {
     let unix_time = time_to_unix(&config, time)?;
     println!("unix_time: {}", unix_time);
@@ -47,8 +62,15 @@ pub async fn time_to_block(config: &Config, time: &str) -> Result<u64> {
     Ok(block)
 }
 
+/// log all timezones available
+pub fn list_timezones() {
+    TZ_VARIANTS.iter().for_each(|tz| println!("{}", tz));
+}
+
+// define internal logic
+
 async fn block_search(config: &Config, unix_time: u64) -> Result<u64> {
-    let provider = Provider::<Http>::try_from(config.rpc_url())?;
+    let provider = Provider::<Http>::try_from(config.snipe_rpc_url())?;
     let current_block = get_current_block_number(&provider).await?;
     let current_time = get_block_unix_time(&config, current_block).await?;
 
@@ -82,7 +104,7 @@ async fn block_search(config: &Config, unix_time: u64) -> Result<u64> {
 }
 
 async fn get_block_unix_time(config: &Config, block_num: u64) -> Result<u64> {
-    let provider = Provider::<Http>::try_from(config.rpc_url())?;
+    let provider = Provider::<Http>::try_from(config.snipe_rpc_url())?;
     let current_block = get_current_block_number(&provider).await?;
     if current_block >= block_num {
         return get_block_timestamp(&provider, block_num).await;
@@ -90,10 +112,6 @@ async fn get_block_unix_time(config: &Config, block_num: u64) -> Result<u64> {
     let timestamp = get_block_timestamp(&provider, current_block).await?;
     let time_difference = 12 * (block_num - current_block);
     return Ok(timestamp + time_difference);
-}
-
-pub fn list_timezones() {
-    TZ_VARIANTS.iter().for_each(|tz| println!("{}", tz));
 }
 
 fn get_genesis() -> NaiveDateTime {
@@ -226,6 +244,8 @@ async fn get_block_timestamp(provider: &Provider<Http>, block_num: u64) -> Resul
     Ok(timestamp)
 }
 
+// testing
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,8 +256,8 @@ mod tests {
     // helpers
     fn get_test_config() -> Config {
         dotenv().ok();
-        let rpc_url = dotenv!("RPC_URL");
-        Config::new(rpc_url.to_string(), "UTC".to_string())
+        let snipe_rpc_url = dotenv!("RPC_URL");
+        Config::new(snipe_rpc_url.to_string(), "UTC".to_string())
     }
 
     fn get_genesis_unix() -> u64 {
@@ -257,7 +277,7 @@ mod tests {
     async fn future_block_to_time() {
         dotenv().ok();
         let config = get_test_config();
-        let provider = Provider::<Http>::try_from(config.rpc_url()).unwrap();
+        let provider = Provider::<Http>::try_from(config.snipe_rpc_url()).unwrap();
 
         let current_block = get_current_block_number(&provider).await.unwrap();
         let current_time = get_block_timestamp(&provider, current_block).await.unwrap();

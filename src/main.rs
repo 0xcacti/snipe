@@ -30,10 +30,10 @@ struct CLIParser {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// time to blocknumber
+    /// blocknumber to time
     #[command(
         name = "block-to-time",
-        about = "time to blocknumber",
+        about = "blocknumber to time",
         visible_alias = "btt"
     )]
     BlockToTime {
@@ -41,7 +41,8 @@ enum Commands {
         #[arg(required = true)]
         block_num: u64,
     },
-    /// blocknumber to time
+
+    /// time to time
     #[command(
         name = "time-to-block",
         about = "time to blocknumber",
@@ -52,6 +53,7 @@ enum Commands {
         #[arg(required = true)]
         time: String,
     },
+
     /// get all available timezones
     #[command(
         name = "list-timezones",
@@ -64,24 +66,24 @@ enum Commands {
 #[tokio::main]
 async fn main() {
     let mut config: Config = Figment::new()
-        .merge(Toml::file("snipe.toml"))
         .merge(Toml::file("foundry.toml").nested())
         .merge(Env::prefixed("SNIPE_"))
         .extract()
         .unwrap();
 
     let args = CLIParser::parse();
-    // Check for Bible version
+
     match args.rpc_url {
-        Some(rpc_url) => config.rpc_url = Some(rpc_url),
-        None => match config.rpc_url {
-            Some(rpc_url) => config.rpc_url = Some(rpc_url),
+        Some(rpc_url) => config.snipe_rpc_url = Some(rpc_url),
+        None => match config.snipe_rpc_url {
+            Some(rpc_url) => config.snipe_rpc_url = Some(rpc_url),
             None => {
                 eprintln!("No RPC URL provided. Please provide a RPC URL using the --rpc-url flag, setting rpc_url in the snipe.toml file, or by setting the SNIPE_RPC_URL environment variable.");
                 process::exit(1);
             }
         },
     }
+
     config.time_zone = args
         .timezone
         .or_else(|| config.time_zone)
