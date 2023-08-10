@@ -40,10 +40,45 @@ pub async fn block_to_time(config: Config, block_num: u64) -> Result<String> {
     Ok(datetime.to_string())
 }
 
-pub fn time_to_block(config: &Config, time: &str) -> Result<u64> {
+pub async fn time_to_block(config: &Config, time: &str) -> Result<u64> {
     let unix_time = time_to_unix(&config, time)?;
+    println!("unix_time: {}", unix_time);
+    let block = block_search(&config, unix_time).await?;
+    Ok(block)
+}
 
-    Ok(1)
+async fn block_search(config: &Config, unix_time: u64) -> Result<u64> {
+    let provider = Provider::<Http>::try_from(config.rpc_url())?;
+    let current_block = get_current_block_number(&provider).await?;
+    let current_time = get_block_unix_time(&config, current_block).await?;
+
+    if unix_time > current_time {
+        return Err(anyhow::anyhow!("Time is in the future."));
+    }
+
+    let mut lower_bound = 0;
+    let mut upper_bound = current_block;
+    let mut current_block = current_block / 2;
+    let mut current_time = get_block_unix_time(&config, current_block).await?;
+
+    // write a binary search that finds the first block to occur after or at a given timestamp
+    while lower_bound <= upper_bound {
+        if current_time == unix_time {
+            return Ok(current_block);
+        }
+
+        if current_time < unix_time {
+            lower_bound = current_block + 1;
+        } else {
+            upper_bound = current_block - 1;
+        }
+        current_block = (lower_bound + upper_bound) / 2;
+        current_time = get_block_unix_time(&config, current_block).await?;
+    }
+    if lower_bound > upper_bound {
+        current_block = lower_bound;
+    }
+    Ok(current_block)
 }
 
 async fn get_block_unix_time(config: &Config, block_num: u64) -> Result<u64> {
@@ -401,5 +436,22 @@ mod tests {
         let time = "2015-07-30 11:26:13";
         let unix = time_to_unix(&config, &time).unwrap();
         assert_eq!(unix, get_genesis_unix());
+    }
+
+    #[tokio::test]
+    async fn block_vague_search() {
+        let expected_block = 17816434;
+        let unix_time = 1690848000;
+        let config = get_test_config();
+        let predicted_block = block_search(&config, unix_time).await.unwrap();
+        assert_eq!(expected_block, predicted_block);
+    }
+    #[tokio::test]
+    async fn exact_block_search() {
+        let expected_block = 17816434;
+        let unix_time = 1690848011;
+        let config = get_test_config();
+        let predicted_block = block_search(&config, unix_time).await.unwrap();
+        assert_eq!(expected_block, predicted_block);
     }
 }

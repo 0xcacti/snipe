@@ -103,7 +103,7 @@ async fn main() {
         }
 
         Some(Commands::TimeToBlock { time }) => {
-            let block = snipe::time_to_block(&config, time);
+            let block = snipe::time_to_block(&config, time).await;
             match block {
                 Ok(block) => {
                     println!("{}", block);
