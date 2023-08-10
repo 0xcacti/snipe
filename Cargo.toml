@@ -1,11 +1,14 @@
 [package]
 name = "snipe"
 version = "0.1.0"
+authors = ["0xcacti"]
 edition = "2021"
 description = "Ethereum block and time converter"
 license = "MIT"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+documentation = "https://docs.rs/snipe"
+readme = "README.md"
+repository = "https://github.com/0xcacti/snipe"
+homepage = "https://github.com/0xcacti/snipe"
 
 [dependencies]
 clap = { version = "4.3.1", features = ["derive", "cargo"] }
