@@ -66,7 +66,7 @@ enum Commands {
 #[tokio::main]
 async fn main() {
     let mut config: Config = Figment::new()
-        .merge(Toml::file("foundry.toml").nested())
+        .merge(Toml::file("foundry.toml"))
         .merge(Env::prefixed("SNIPE_"))
         .extract()
         .unwrap();
@@ -78,7 +78,7 @@ async fn main() {
         None => match config.snipe_rpc_url {
             Some(rpc_url) => config.snipe_rpc_url = Some(rpc_url),
             None => {
-                eprintln!("No RPC URL provided. Please provide a RPC URL using the --rpc-url flag, setting rpc_url in the snipe.toml file, or by setting the SNIPE_RPC_URL environment variable.");
+                eprintln!("No RPC URL provided. Please provide a RPC URL using the --rpc-url flag, setting snipe_rpc_url in a foundry.toml file, or by setting the SNIPE_RPC_URL environment variable.");
                 process::exit(1);
             }
         },

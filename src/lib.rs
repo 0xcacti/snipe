@@ -57,7 +57,6 @@ pub async fn block_to_time(config: Config, block_num: u64) -> Result<String> {
 /// if the timestamp has yet to occur it will error.
 pub async fn time_to_block(config: &Config, time: &str) -> Result<u64> {
     let unix_time = time_to_unix(&config, time)?;
-    println!("unix_time: {}", unix_time);
     let block = block_search(&config, unix_time).await?;
     Ok(block)
 }
@@ -185,7 +184,6 @@ fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
         .with_timezone(&Utc)
         .format("%Y-%m-%d %H:%M:%S")
         .to_string();
-    println!("UTC: {}", utc_datetime);
     let utc_time_components = split_time(utc_datetime.as_str());
 
     let complete_time_components =
@@ -269,7 +267,6 @@ mod tests {
     async fn historical_block_to_time() {
         let known_time = 1438269988;
         let calculated_time = get_block_unix_time(&get_test_config(), 1).await.unwrap();
-        println!("known: {}, calculated: {}", known_time, calculated_time);
         assert_eq!(known_time, calculated_time);
     }
 
@@ -289,7 +286,6 @@ mod tests {
     #[test]
     fn time_zone_to_tz() {
         let tz = parse_timezone("UTC").unwrap();
-        println!("tz: {}", tz);
         assert_eq!(tz.name(), "UTC");
     }
 
