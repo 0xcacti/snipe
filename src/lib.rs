@@ -37,7 +37,10 @@ impl Config {
 /// the current requested block
 pub async fn block_to_time(config: Config, block_num: u64) -> Result<String> {
     let tz = parse_timezone(&config.time_zone())?;
-    let block_unix = get_block_unix_time(&config, block_num).await?;
+    let mut block_unix = get_block_unix_time(&config, block_num).await?;
+    if block_num == 0 {
+        block_unix = get_genesis().timestamp() as u64;
+    }
 
     let timestamp = NaiveDateTime::from_timestamp_opt(block_unix as i64, 0).ok_or_else(|| {
         anyhow::anyhow!(
@@ -188,7 +191,7 @@ fn time_to_unix(config: &Config, time: &str) -> Result<u64> {
 
     let complete_time_components =
         if can_be_genesis(&utc_time_components[..time_components.len()].to_vec()) {
-            vec!["2015", "07", "30", "15", "26", "13"]
+            return Ok(get_genesis().timestamp() as u64);
         } else {
             let mut full_datetime_parts = vec!["2015", "01", "01", "00", "00", "00"];
             for (i, component) in time_components.iter().enumerate() {
