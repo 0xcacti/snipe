@@ -1,6 +1,6 @@
 [package]
 name = "snipe"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["0xcacti"]
 edition = "2021"
 description = "Ethereum block and time converter"
