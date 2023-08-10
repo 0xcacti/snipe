@@ -5,6 +5,11 @@ just starting to learn Rust, so please critique and rip apart the code as you se
 
 ### Design 
 
+The project is implemented as a binary crate CLI tool that calls into a library crate.
+The CLI implements all the public methods. 
+
+### CLI 
+
 There are a few functionalities available through the CLI.  
 
 - Block to time 
@@ -22,19 +27,26 @@ This means that if a user specifies simply the year 2015, the function will retu
 However if the user specifies a timestamp that cannot be turned into a block occuring at or before 
 genesis, the program will error.
 
-- Countdown 
-
-This function provides a live updating countdown to the specified block number.
 
 - Timezones 
 
 List all timezones available to the user 
 
+### Potential Improvements 
 
-TODO 
-add testing to make sure timezone management is done correctly and that 
-the genesis / 01 conversion is still managed properly.  
+#### Better Error Handling 
+As it stands, I am using unwraps on options and anyhow for results.  If there was
+decent public interest in this tool, I would go through the effort to convert it 
+to use thiserror in the library code.  
 
-implement binary search for block, return 
+#### Search Optimization
+Right now, the search algorithm is a simple binary search.  I may add checkpoints 
+in the future, to make search distances significantly shorter. 
 
-done
+#### Countdown 
+Add a live updating countdown in the terminal to the next block
+
+#### Transaction Sniping 
+Implement functionality that allows people to submit transactions with snipe 
+and it will attempt to land the transaction in the given block or as close 
+to the given time as possible.
